@@ -2,6 +2,7 @@
 using Commander.Data;
 using Commander.Dtos;
 using Commander.Models;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Generic;
 
@@ -47,7 +48,49 @@ namespace Commander.Controllers
 
             var commandReadDto = _mapper.Map<CommandReadDto>(commandModel);
 
-            return CreatedAtRoute(nameof(GetCommandById), new { Id = commandReadDto.Id, commandReadDto});
+            return CreatedAtRoute(nameof(GetCommandById), new { Id = commandReadDto.Id, commandReadDto });
+        }
+
+        [HttpPut("{id}")]
+        public ActionResult UpdateCommand(int id, CommandUpdateDto commandUpdateDto)
+        {
+            var commandModel = _repository.GetCommandById(id);
+            if (commandModel == null)
+            {
+                return NotFound();
+            }
+
+            _mapper.Map(commandUpdateDto, commandModel);
+
+            _repository.UpdateCommand(commandModel);
+            _repository.SaveChanges();
+
+            return NoContent();
+        }
+
+        [HttpPatch("{id}")]
+        public ActionResult PartialCommandUpdate(int id, JsonPatchDocument<CommandUpdateDto> patchDocument)
+        {
+            var commandModelFromRepo = _repository.GetCommandById(id);
+            if (commandModelFromRepo == null)
+            {
+                return NotFound();
+            }
+
+            var commandToPatch = _mapper.Map<CommandUpdateDto>(commandModelFromRepo);
+            patchDocument.ApplyTo(commandToPatch, ModelState);
+
+            if (!TryValidateModel(commandToPatch))
+            {
+                return ValidationProblem(ModelState);
+            }
+
+            _mapper.Map(commandToPatch, commandModelFromRepo);
+
+            _repository.UpdateCommand(commandModelFromRepo);
+            _repository.SaveChanges();
+
+            return NoContent();
         }
     }
 }
